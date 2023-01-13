@@ -18,11 +18,17 @@ props = p.Results.props;
 n = numel(props)/2;
 
 % split args into their field/properties and the value to set
-fields = props(1:2:end);
-vals = props(2:2:end);
+sz = size(props);
+if ismatrix(props) && ( sz(1) && sz(2) ) ~=1 
+    fields = props(:,1);
+    vals = props(:,2);
+else
+    fields = props(1:2:end);
+    vals = props(2:2:end);
+end
 
 for i = 1:n
-    mystr = fields{i}; 
+    mystr = fields{i};
     myval = vals{i};
 
     % field validation
@@ -32,15 +38,19 @@ for i = 1:n
     end
     mystr = char(mystr); % turn into char for easier validation
     k = strfind(mystr,'.'); % check for nesting
-    if ~isempty(k) 
+    if ~isempty(k)
         subfields=strsplit(mystr,'.');
-        bstr = extractBefore(mystr,k(end));
-        astr = extractAfter(mystr,k(end));
-        
-        if isfield(S.(bstr),astr) || isprop(S.(bstr),astr)
-            fieldflag=true; 
-        else
-            fieldflag=false;
+%         bstr = extractBefore(mystr,k(end));
+%         astr = extractAfter(mystr,k(end));
+        Stemp = S;
+        for m = 1:numel(subfields)-1
+            Stemp = Stemp.(subfields{m});
+            if isfield(Stemp,subfields{m+1}) || isprop(Stemp,subfields{m+1})
+                fieldflag=true;
+            else
+                fieldflag=false;
+                break;
+            end
         end
     else
         if isfield(S,mystr) || isprop(S,mystr)
@@ -54,7 +64,7 @@ for i = 1:n
     % try setting the field to the property; skip if unable
     if fieldflag == true
         try
-            if ~isempty(k) 
+            if ~isempty(k)
                 S = setfield(S,subfields{:},myval);
             else
                 S.(mystr) = myval;
