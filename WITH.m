@@ -19,12 +19,17 @@ n = numel(props)/2;
 
 % split args into their field/properties and the value to set
 sz = size(props);
-if ismatrix(props) && ( sz(1) && sz(2) ) ~=1 
-    fields = props(:,1);
-    vals = props(:,2);
+if sz(1) == 2 && sz(2) > 2
+    fields  = props(1,:);
+    vals    = props(2,:);
+elseif sz(2) == 2
+    fields  = props(:,1);
+    vals    = props(:,2);
+elseif sz(1) == 1 || sz(2) == 1
+    fields  = props(1:2:end);
+    vals    = props(2:2:end);
 else
-    fields = props(1:2:end);
-    vals = props(2:2:end);
+    error('Invalid input for properties')
 end
 
 for i = 1:n
@@ -40,16 +45,20 @@ for i = 1:n
     k = strfind(mystr,'.'); % check for nesting
     if ~isempty(k)
         subfields=strsplit(mystr,'.');
-%         bstr = extractBefore(mystr,k(end));
-%         astr = extractAfter(mystr,k(end));
+        %         bstr = extractBefore(mystr,k(end));
+        %         astr = extractAfter(mystr,k(end));
         Stemp = S;
         for m = 1:numel(subfields)-1
-            Stemp = Stemp.(subfields{m});
-            if isfield(Stemp,subfields{m+1}) || isprop(Stemp,subfields{m+1})
-                fieldflag=true;
-            else
-                fieldflag=false;
-                break;
+            try
+                Stemp = Stemp.(subfields{m});
+                if isfield(Stemp,subfields{m+1}) || isprop(Stemp,subfields{m+1})
+                    fieldflag=true;
+                else
+                    fieldflag=false;
+                    break;
+                end
+            catch
+                fieldflag = false;
             end
         end
     else
@@ -70,7 +79,7 @@ for i = 1:n
                 S.(mystr) = myval;
             end
         catch
-            warning('Could not set field. Skipping.')
+            warning(['Could not set field `' mystr '`. Skipping.'])
             continue
         end
     else
