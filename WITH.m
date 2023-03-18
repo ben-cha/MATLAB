@@ -1,89 +1,105 @@
-function WITH(S, props)
+function WITH(OBJ, props)
 
 p = inputParser;
 
 % must be struct or object
-Sreq = @(x) isstruct(x) || isobject(x);
+OBJreq = @(x) isstruct(x) || isobject(x);
 
 % must be a cell containing pseudo- name-value pairs
 propreq = @(x) iscell(x) && mod(numel(x),2)==0;
 
-addRequired(p,'S', Sreq)
+addRequired(p,'OBJ', OBJreq)
 addRequired(p,'props', propreq)
 
-parse(p,S,props);
-S = p.Results.S;
-props = p.Results.props;
+parse(p,OBJ, props);
+OBJ         = p.Results.OBJ;
+props       = p.Results.props;
 
+% reshape props cell 
+if isequal(size(props), [2 2])
+    [fieldflag, ~, ~] = validateField(OBJ, props{2,1});
+    if ~fieldflag
+        props = props.';
+    end
+else
+    props = reshapeprop(props);
+end
 n = numel(props)/2;
 
 % split args into their field/properties and the value to set
-sz = size(props);
-if sz(1) == 2 && sz(2) > 2
-    fields  = props(1,:);
-    vals    = props(2,:);
-elseif sz(2) == 2
-    fields  = props(:,1);
-    vals    = props(:,2);
-elseif sz(1) == 1 || sz(2) == 1
-    fields  = props(1:2:end);
-    vals    = props(2:2:end);
-else
-    error('Invalid input for properties')
-end
-
+fields  = props(:,1);
+vals    = props(:,2);
 for i = 1:n
-    mystr = fields{i};
+    myfield = fields{i};
     myval = vals{i};
-
-    % field validation
-    if ~isstring(mystr) && ~ischar(mystr)
+    if ~isstring(myfield) && ~ischar(myfield)
         warning('Field must be a string or char. Skipping.')
         continue;
     end
-    mystr = char(mystr); % turn into char for easier validation
-    k = strfind(mystr,'.'); % check for nesting
-    if ~isempty(k)
-        subfields=strsplit(mystr,'.');
-        %         bstr = extractBefore(mystr,k(end));
-        %         astr = extractAfter(mystr,k(end));
-        Stemp = S;
-        for m = 1:numel(subfields)-1
-            try
-                Stemp = Stemp.(subfields{m});
-                if isfield(Stemp,subfields{m+1}) || isprop(Stemp,subfields{m+1})
-                    fieldflag=true;
-                else
-                    fieldflag=false;
-                    break;
-                end
-            catch
-                fieldflag = false;
-            end
-        end
-    else
-        if isfield(S,mystr) || isprop(S,mystr)
-            fieldflag=true;
-        else
-            fieldflag=false;
-        end
-    end
-    % /field validation
+    myfield = char(myfield); % turn into char for easier validation
+    [fieldflag, k, subfields] = validateField(OBJ, myfield);
 
     % try setting the field to the property; skip if unable
     if fieldflag == true
         try
             if ~isempty(k)
-                S = setfield(S,subfields{:},myval);
+                OBJ = setfield(OBJ,subfields{:},myval);
             else
-                S.(mystr) = myval;
+                OBJ.(myfield) = myval;
             end
         catch
-            warning(['Could not set field `' mystr '`. Skipping.'])
+            warning(['Could not set field `' myfield '`. Skipping.'])
             continue
         end
     else
-        warning([mystr ' is not a valid field. Skipping.'])
+        warning([myfield ' is not a valid field. Skipping.'])
         continue
     end
+end
+end
+
+function newprop = reshapeprop(oldprop)
+[rows,cols] = size(oldprop);
+if rows == 1 || cols == 1
+    newprop = reshape(oldprop,2,[]).';
+elseif cols == 2 && rows ~= 2
+    newprop = oldprop;
+elseif rows == 2  && cols > 2 
+    newprop = oldprop.';
+else
+    error('Invalid input for properties')
+end
+end
+
+function [fieldflag, k, subfields] = validateField(OBJ, myfield)
+% field validation
+k = strfind(myfield,'.');
+if ~isempty(k)  % check for nesting
+    subfields = strsplit(myfield,'.');
+    OBJtemp = OBJ;
+    for m = 1:numel(subfields)-1
+        try
+            OBJtemp = OBJtemp.(subfields{m});
+            if isfield(OBJtemp,subfields{m+1}) || isprop(OBJtemp,subfields{m+1})
+                fieldflag=true;
+            else
+                fieldflag=false;
+                break;
+            end
+        catch
+            fieldflag = false;
+        end
+    end
+else
+    try
+        if isfield(OBJ,myfield) || isprop(OBJ,myfield)
+            fieldflag=true;
+        else
+            fieldflag=false;
+        end
+    catch
+        fieldflag=false;
+    end
+    subfields=[];
+end
 end
