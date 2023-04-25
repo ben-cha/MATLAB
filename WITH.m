@@ -1,4 +1,4 @@
-function varargout = WITH(OBJ, props)
+function varargout = WITH(OBJ, props, varargin)
 % dbstop if caught error
 p = inputParser;
 
@@ -10,10 +10,12 @@ propreq = @(x) iscell(x) && mod(numel(x),2)==0;
 
 addRequired(p,'OBJ', OBJreq)
 addRequired(p,'props', propreq)
+addParameter(p, 'warning', true, @islogical, 'PartialMatchPriority',1)
 
-parse(p, OBJ, props);
+parse(p, OBJ, props, varargin{:});
 OBJ         = p.Results.OBJ;
 props       = p.Results.props;
+warn        = p.Results.warning;
 
 % reshape props cell
 if isequal(size(props), [2 2])
@@ -39,7 +41,9 @@ for ii = 1:numel(OBJ)
         myfield = fields{i};
         myval = vals{i};
         if ~isstring(myfield) && ~ischar(myfield)
-            warning('Field must be a string or char. Skipping.')
+            if warn ~=false
+                warning('Field must be a string or char. Skipping.')
+            end
             continue;
         end
         myfield = char(myfield); % turn into char for easier validation
@@ -54,11 +58,15 @@ for ii = 1:numel(OBJ)
                     MYOBJ.(myfield) = myval;
                 end
             catch
-                warning(['Could not set field `' myfield '`. Skipping.'])
+                if warn ~=false
+                    warning(['Could not set field `' myfield '`. Skipping.'])
+                end
                 continue
             end
         else
-            warning([myfield ' is not a valid field. Skipping.'])
+            if warn ~=false
+                warning([myfield ' is not a valid field. Skipping.'])
+            end
             continue
         end
     end
