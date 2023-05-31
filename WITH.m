@@ -1,4 +1,4 @@
-function varargout = WITH(OBJ, props, varargin)
+function varargout = WITH(OBJ, fieldprops, varargin)
 % dbstop if caught error
 p = inputParser;
 
@@ -9,28 +9,30 @@ OBJreq = @(x) isstruct(x) || isobject(x);
 propreq = @(x) iscell(x) && mod(numel(x),2)==0;
 
 addRequired(p,'OBJ', OBJreq)
-addRequired(p,'props', propreq)
+addRequired(p,'fieldprops', propreq);
+% addRequired(p,'fieldprops', propreq || (~isempty(varargin) && mod(numel(varargin),2)==1));
+% addOptional(p, 'props', [], @(x) numel(x)==numel(fieldsprops)) %do later
 addParameter(p, 'warning', true, @islogical, 'PartialMatchPriority',1)
 
-parse(p, OBJ, props, varargin{:});
+parse(p, OBJ, fieldprops, varargin{:});
 OBJ         = p.Results.OBJ;
-props       = p.Results.props;
+fieldprops       = p.Results.fieldprops;
 warn        = p.Results.warning;
 
-% reshape props cell
-if isequal(size(props), [2 2])
-    [fieldflag, ~, ~] = validateField(OBJ(1), props{2,1});
+% reshape fieldprops cell
+if isequal(size(fieldprops), [2 2])
+    [fieldflag, ~, ~] = validateField(OBJ(1), fieldprops{2,1});
     if ~fieldflag
-        props = props.';
+        fieldprops = fieldprops.';
     end
 else
-    props = reshapeprop(props);
+    fieldprops = reshapeprop(fieldprops);
 end
-n = numel(props)/2;
+n = numel(fieldprops)/2;
 
 % split args into their field/properties and the value to set
-fields  = props(:,1);
-vals    = props(:,2);
+fields  = fieldprops(:,1);
+vals    = fieldprops(:,2);
 
 % if isequal(class(OBJ), 'matlab.graphics.primitive.world.Group')
 % end
