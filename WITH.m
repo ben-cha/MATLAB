@@ -1,42 +1,55 @@
 function varargout = WITH(OBJ, fieldprops, varargin)
-% dbstop if caught error
+
+%{
+Set properties to objects 
+`OBJ` must be a struct or object
+`fieldprops` can either be a cell vector/matrix of field-property arguments OR it
+can be a vector of field arguments
+If `fieldprops` is a cell vector of field arguments, `props` must be a vector of the
+same length of property arguments
+Supports nested fields
+%}
+
 p = inputParser;
 
 % must be struct or object
 OBJreq = @(x) isstruct(x) || isobject(x);
 
 % must be a cell containing pseudo- name-value pairs
-propreq = @(x) iscell(x) && mod(numel(x),2)==0;
+fpreq = @(x) iscell(x) && (mod(numel(x),2)==0) || (iscell(varargin{1}) && numel(varargin{1})==numel(x));
+propreq = @(x) iscell(x) && numel(x)==numel(fieldprops) && isvector(x) && isvector(fieldprops);
 
 addRequired(p,'OBJ', OBJreq)
-addRequired(p,'fieldprops', propreq);
-% addRequired(p,'fieldprops', propreq || (~isempty(varargin) && mod(numel(varargin),2)==1));
-% addOptional(p, 'props', [], @(x) numel(x)==numel(fieldsprops)) %do later
+addRequired(p,'fieldprops', fpreq);
+addOptional(p, 'props', [], propreq) %do later
 addParameter(p, 'warning', true, @islogical, 'PartialMatchPriority',1)
 
 parse(p, OBJ, fieldprops, varargin{:});
 OBJ         = p.Results.OBJ;
-fieldprops       = p.Results.fieldprops;
+fieldprops  = p.Results.fieldprops;
+props       = p.Results.props;
 warn        = p.Results.warning;
 
-% reshape fieldprops cell
-if isequal(size(fieldprops), [2 2])
-    [fieldflag, ~, ~] = validateField(OBJ(1), fieldprops{2,1});
-    if ~fieldflag
-        fieldprops = fieldprops.';
+if isempty(props)
+    % reshape fieldprops cell
+    if isequal(size(fieldprops), [2 2])
+        [fieldflag, ~, ~] = validateField(OBJ(1), fieldprops{2,1});
+        if ~fieldflag
+            fieldprops = fieldprops.';
+        end
+    else
+        fieldprops = reshapeprop(fieldprops);
     end
+    % split args into their field/properties and the value to set
+    fields  = fieldprops(:,1);
+    vals    = fieldprops(:,2);
 else
-    fieldprops = reshapeprop(fieldprops);
+    fields = fieldprops;
+    vals = props;
 end
-n = numel(fieldprops)/2;
+n = numel(fields);
 
-% split args into their field/properties and the value to set
-fields  = fieldprops(:,1);
-vals    = fieldprops(:,2);
-
-% if isequal(class(OBJ), 'matlab.graphics.primitive.world.Group')
-% end
-
+WID = 'bcha:WITH:FieldError';
 for ii = 1:numel(OBJ)
     MYOBJ = OBJ(ii);
     for i = 1:n
@@ -44,7 +57,7 @@ for ii = 1:numel(OBJ)
         myval = vals{i};
         if ~isstring(myfield) && ~ischar(myfield)
             if warn ~=false
-                warning('Field must be a string or char. Skipping.')
+                warning(WID, 'Field must be a string or char. Skipping.')
             end
             continue;
         end
@@ -61,13 +74,13 @@ for ii = 1:numel(OBJ)
                 end
             catch
                 if warn ~=false
-                    warning(['Could not set field `' myfield '`. Skipping.'])
+                    warning(WID, ['Could not set field `' myfield '`. Skipping.'])
                 end
                 continue
             end
         else
             if warn ~=false
-                warning([myfield ' is not a valid field. Skipping.'])
+                warning(WID, [myfield ' is not a valid field for given object. Skipping.'])
             end
             continue
         end
@@ -83,6 +96,7 @@ end
 
 %% Functions
 function newprop = reshapeprop(oldprop)
+% find which dim the field-prop pairs are listed and reshape if necessary
 [rows,cols] = size(oldprop);
 if rows == 1 || cols == 1
     newprop = reshape(oldprop,2,[]).';
