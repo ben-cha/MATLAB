@@ -13,7 +13,7 @@ Supports nested fields
 p = inputParser;
 
 % must be struct or object
-OBJreq = @(x) isstruct(x) || isobject(x);
+OBJreq = @(x) isstruct(x) || isobject(x) || ((iscell(x) || isvector(x)) && (isstruct(x{1}) || isobject(x{1})));
 
 % must be a cell containing pseudo- name-value pairs
 fpreq = @(x) iscell(x) && (mod(numel(x),2)==0) || (iscell(varargin{1}) && numel(varargin{1})==numel(x));
@@ -51,46 +51,52 @@ n = numel(fields);
 
 WID = 'bcha:WITH:FieldError';
 for ii = 1:numel(OBJ)
-    MYOBJ = OBJ(ii);
-    for i = 1:n
-        myfield = fields{i};
-        myval = vals{i};
-        if ~isstring(myfield) && ~ischar(myfield)
-            if warn ~=false
-                warning(WID, 'Field must be a string or char. Skipping.')
-            end
-            continue;
-        end
-        myfield = char(myfield); % turn into char for easier validation
-        [fieldflag, k, subfields] = validateField(MYOBJ, myfield);
-
-        % try setting the field to the property; skip if unable
-        if fieldflag == true
-            try
-                if ~isempty(k)
-                    MYOBJ = setfield(MYOBJ,subfields{:},myval);
-                else
-                    MYOBJ.(myfield) = myval;
-                end
-            catch
+    if iscell(OBJ)
+        MYOBJ = OBJ{ii};
+    else
+        MYOBJ = OBJ(ii);
+    end
+    for jj = 1:numel(MYOBJ)
+        for i = 1:n
+            myfield = fields{i};
+            myval = vals{i};
+            if ~isstring(myfield) && ~ischar(myfield)
                 if warn ~=false
-                    warning(WID, ['Could not set field `' myfield '`. Skipping.'])
+                    warning(WID, 'Field must be a string or char. Skipping.')
+                end
+                continue;
+            end
+            myfield = char(myfield); % turn into char for easier validation
+            [fieldflag, k, subfields] = validateField(MYOBJ(jj), myfield);
+
+            % try setting the field to the property; skip if unable
+            if fieldflag == true
+                try
+                    if ~isempty(k)
+                        MYOBJ(jj) = setfield(MYOBJ(jj),subfields{:},myval);
+                    else
+                        MYOBJ(jj).(myfield) = myval;
+                    end
+                catch
+                    if warn ~=false
+                        warning(WID, ['Could not set field `' myfield '`. Skipping.'])
+                    end
+                    continue
+                end
+            else
+                if warn ~=false
+                    warning(WID, [myfield ' is not a valid field for given object. Skipping.'])
                 end
                 continue
             end
-        else
-            if warn ~=false
-                warning(WID, [myfield ' is not a valid field for given object. Skipping.'])
-            end
-            continue
         end
     end
 end
 
 
-if nargout > 0
-    varargout{1} = MYOBJ;
-end
+% if nargout > 0
+%     varargout{1} = MYOBJ;
+% end
 
 end
 
